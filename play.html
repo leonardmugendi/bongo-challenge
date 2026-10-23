@@ -1,0 +1,170 @@
+<!DOCTYPE html>
+<html lang="sw">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Bongo Challenge — Cheza na Rafiki</title>
+<meta name="description" content="Jibu quiz ya rafiki yako kwenye Bongo Challenge. Answer your friend's Bongo Challenge quiz.">
+<meta property="og:title" content="Bongo Challenge 🎮 Unanijua kiasi gani?">
+<meta property="og:description" content="Jibu maswali ya rafiki yako uone kama wewe ni rafiki wa kweli!">
+<meta name="theme-color" content="#6C2BD9">
+<style>
+  :root { --violet:#6C2BD9; --deep:#3B0F8C; --gold:#FFC531; --coral:#FF5A6E; --mint:#2ECC71; --sky:#2F80ED; --ink:#231446; }
+  * { box-sizing: border-box; }
+  body { margin:0; min-height:100vh; font:16px/1.5 system-ui,-apple-system,"Segoe UI",Roboto,sans-serif; color:#fff;
+         background:linear-gradient(180deg,#7B3AED,#1C0B45) fixed; }
+  .wrap { max-width:520px; margin:0 auto; padding:20px 16px 40px; }
+  .brand { text-align:center; font-weight:900; letter-spacing:.5px; font-size:30px; color:var(--gold); text-shadow:0 3px 6px rgba(0,0,0,.35); }
+  .sub { text-align:center; opacity:.85; margin-top:2px; }
+  .card { background:#fff; color:var(--ink); border-radius:24px; padding:20px; margin:18px 0; box-shadow:0 8px 18px rgba(0,0,0,.25); }
+  h2 { margin:.2em 0 .4em; text-align:center; }
+  .q { font-size:20px; font-weight:700; text-align:center; }
+  .opt { display:block; width:100%; text-align:left; border:0; border-radius:16px; padding:15px 16px; margin:10px 0; font-size:16px;
+         font-weight:600; background:#fff; color:var(--ink); box-shadow:0 3px 8px rgba(0,0,0,.15); cursor:pointer; }
+  .opt.right { background:var(--mint); color:#fff; } .opt.wrong { background:var(--coral); color:#fff; }
+  .opt.a { background:var(--sky); color:#fff; text-align:center; font-size:20px; padding:26px; }
+  .opt.b { background:var(--coral); color:#fff; text-align:center; font-size:20px; padding:26px; }
+  .or { text-align:center; font-weight:900; color:var(--gold); font-size:22px; }
+  input { width:100%; padding:14px; border-radius:14px; border:2px solid #E7E0F7; font-size:16px; margin:8px 0 4px; }
+  .btn { display:block; width:100%; border:0; border-radius:18px; padding:15px; font-size:17px; font-weight:800; margin:10px 0; cursor:pointer; text-align:center; text-decoration:none; }
+  .gold { background:var(--gold); color:var(--ink); } .wa { background:#25D366; color:#fff; } .ghost { background:transparent; color:#fff; border:2px solid rgba(255,255,255,.5); }
+  .bar { height:8px; background:rgba(255,255,255,.25); border-radius:8px; overflow:hidden; } .bar > div { height:100%; background:var(--gold); width:0; transition:width .3s; }
+  .big { font-size:54px; font-weight:900; text-align:center; color:var(--violet); margin:6px 0; }
+  .muted { color:#6E6290; text-align:center; }
+  .center { text-align:center; } .hide { display:none; }
+  footer { text-align:center; opacity:.7; font-size:13px; margin-top:24px; } footer a { color:#fff; }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <div class="brand">🎮 Bongo Challenge</div>
+  <div class="sub" id="tagline"></div>
+  <div id="app"></div>
+  <footer><a href="privacy.html">Sera ya Faragha / Privacy</a> · LeonTechForge</footer>
+</div>
+<script>
+(function () {
+  var PLAY = 'https://play.google.com/store/apps/details?id=com.leontechforge.bongochallenge';
+  var en = (navigator.language || '').toLowerCase().indexOf('en') === 0 && (navigator.language || '').toLowerCase() !== 'en-tz';
+  function t(sw, eng) { return en ? eng : sw; }
+  var app = document.getElementById('app');
+  document.getElementById('tagline').textContent = t('Michezo ya burudani na marafiki', 'Fun games with friends');
+
+  function esc(s) { return String(s).replace(/[&<>"']/g, function (c) { return {'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]; }); }
+
+  async function decode(code) {
+    var b64 = code.replace(/-/g, '+').replace(/_/g, '/');
+    while (b64.length % 4) b64 += '=';
+    var bin = atob(b64), bytes = new Uint8Array(bin.length);
+    for (var i = 0; i < bin.length; i++) bytes[i] = bin.charCodeAt(i);
+    var stream = new Blob([bytes]).stream().pipeThrough(new DecompressionStream('deflate'));
+    var text = await new Response(stream).text();
+    return JSON.parse(text);
+  }
+  async function encode(obj) {
+    var stream = new Blob([JSON.stringify(obj)]).stream().pipeThrough(new CompressionStream('deflate'));
+    var bytes = new Uint8Array(await new Response(stream).arrayBuffer());
+    var bin = ''; for (var i = 0; i < bytes.length; i++) bin += String.fromCharCode(bytes[i]);
+    return btoa(bin).replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/, '');
+  }
+  function appLink(kind, code) {
+    return 'intent://open/' + kind + '/' + code + '#Intent;scheme=bongochallenge;package=com.leontechforge.bongochallenge;S.browser_fallback_url=' + encodeURIComponent(PLAY) + ';end';
+  }
+  function base() { return location.origin + location.pathname; }
+  function wa(text) { return 'https://wa.me/?text=' + encodeURIComponent(text); }
+  function installCard() {
+    return '<a class="btn gold" href="' + PLAY + '">' + t('Pakua Bongo Challenge — michezo 15+ 🎮', 'Get Bongo Challenge — 15+ games 🎮') + '</a>';
+  }
+
+  // ---------------------------------------------------------- friend quiz
+  function quiz(data, code) {
+    var name = data.n || '?', qs = data.q || [], i = 0, score = 0, me = '';
+    app.innerHTML = '<div class="card"><h2>' + (data.w ? t('💕 Unanijua kiasi gani?', '💕 How well do you know me?') : t('Unamjua ' + esc(name) + ' kiasi gani? 😎', 'How well do you know ' + esc(name) + '? 😎')) + '</h2>' +
+      '<p class="muted">' + t('Maswali ' + qs.length + ' kuhusu ' + esc(name) + '. Jibu kama unavyomjua!', qs.length + ' questions about ' + esc(name) + '. Answer as you know them!') + '</p>' +
+      '<input id="me" maxlength="20" placeholder="' + t('Jina lako', 'Your name') + '">' +
+      '<button class="btn gold" id="go">' + t('Anza', 'Start') + '</button>' +
+      '<a class="btn ghost" style="color:#6C2BD9;border-color:#E7E0F7" href="' + appLink('q', code) + '">' + t('Cheza kwenye App', 'Play in the app') + '</a></div>';
+    document.getElementById('go').onclick = function () {
+      me = (document.getElementById('me').value || '').trim() || t('Rafiki', 'Friend');
+      next();
+    };
+    function next() {
+      if (i >= qs.length) return done();
+      var q = qs[i];
+      app.innerHTML = '<div class="bar"><div style="width:' + (i * 100 / qs.length) + '%"></div></div>' +
+        '<div class="card"><div class="muted">' + t('Kuhusu ' + esc(name), 'About ' + esc(name)) + ' · ' + (i + 1) + '/' + qs.length + '</div><div class="q">' + esc(q[0]) + '</div></div>' +
+        q[1].map(function (o, k) { return '<button class="opt" data-k="' + k + '">' + esc(o) + '</button>'; }).join('');
+      Array.prototype.forEach.call(document.querySelectorAll('.opt'), function (b) {
+        b.onclick = function () {
+          var k = +b.getAttribute('data-k'), right = q[2];
+          document.querySelectorAll('.opt')[right].classList.add('right');
+          if (k === right) score++; else b.classList.add('wrong');
+          Array.prototype.forEach.call(document.querySelectorAll('.opt'), function (x) { x.onclick = null; });
+          i++; setTimeout(next, 900);
+        };
+      });
+    }
+    async function done() {
+      var total = qs.length;
+      var head = score >= total * 0.8 ? t('Rafiki wa Kweli! 🏆', 'True Friend! 🏆') : score >= total / 2 ? t('Mnajuana! 👍', 'Good Friends! 👍') : t('Mnahitaji muda zaidi 😅', 'Spend more time together 😅');
+      var r = await encode({ id: data.id, n: me, s: score, t: total, k: 'q' });
+      var link = base() + '#r=' + r;
+      var msg = t('Nimepata ' + score + '/' + total + ' kwenye quiz yako, ' + name + '! 😎 Gusa uone 👉 ' + link,
+                  'I scored ' + score + '/' + total + ' on your quiz, ' + name + '! 😎 Tap to see 👉 ' + link);
+      app.innerHTML = '<div class="card center"><h2>' + head + '</h2><div class="big">' + score + '/' + total + '</div>' +
+        '<p class="muted">' + t('Mtumie ' + esc(name) + ' matokeo yako!', 'Send ' + esc(name) + ' your score!') + '</p>' +
+        '<a class="btn wa" href="' + wa(msg) + '">' + t('Tuma kwa ' + esc(name) + ' (WhatsApp)', 'Send to ' + esc(name) + ' (WhatsApp)') + '</a></div>' +
+        '<div class="card center"><h2>' + t('Zamu yako! 🎉', 'Your turn! 🎉') + '</h2><p class="muted">' + t('Tengeneza quiz yako uone nani anakujua zaidi.', 'Make your own quiz and see who knows you best.') + '</p>' + installCard() + '</div>';
+    }
+  }
+
+  // ----------------------------------------------------------- comparison
+  function compare(data) {
+    var name = data.n || '?', pairs = data.p || [], theirs = data.ch || [], i = 0, same = 0;
+    function next() {
+      if (i >= pairs.length) return done();
+      var p = pairs[i];
+      app.innerHTML = '<div class="bar"><div style="width:' + (i * 100 / pairs.length) + '%"></div></div>' +
+        '<div class="card center"><div class="muted">' + t('Chagua kama ' + esc(name) + '?', 'Pick like ' + esc(name) + '?') + ' · ' + (i + 1) + '/' + pairs.length + '</div></div>' +
+        '<button class="opt a" data-k="0">' + esc(p[0]) + '</button><div class="or">' + t('AU', 'OR') + '</div><button class="opt b" data-k="1">' + esc(p[1]) + '</button>';
+      Array.prototype.forEach.call(document.querySelectorAll('.opt'), function (b) {
+        b.onclick = function () { if (+b.getAttribute('data-k') === theirs[i]) same++; i++; next(); };
+      });
+    }
+    async function done() {
+      var pct = Math.round(same * 100 / pairs.length);
+      var r = await encode({ id: data.id, n: t('Rafiki', 'Friend'), s: pct, t: 100, k: 'c' });
+      var msg = t('Tunafanana kwa ' + pct + '%, ' + name + '! 😄 👉 ' + base() + '#r=' + r, 'We match ' + pct + '%, ' + name + '! 😄 👉 ' + base() + '#r=' + r);
+      app.innerHTML = '<div class="card center"><h2>' + t('Mnafanana kwa', 'You match') + '</h2><div class="big">' + pct + '%</div>' +
+        '<a class="btn wa" href="' + wa(msg) + '">' + t('Mtumie ' + esc(name), 'Send to ' + esc(name)) + '</a></div><div class="card center">' + installCard() + '</div>';
+    }
+    next();
+  }
+
+  // --------------------------------------------------------------- result
+  function result(data, code) {
+    app.innerHTML = '<div class="card center"><h2>' + esc(data.n || '?') + '</h2>' +
+      '<div class="big">' + (data.k === 'c' ? data.s + '%' : data.s + '/' + data.t) + '</div>' +
+      '<p class="muted">' + (data.k === 'c' ? t('Mnafanana kiasi hiki!', 'This is how alike you are!') : t('Amepata alama hizi kwenye quiz yako!', 'This is their score on your quiz!')) + '</p>' +
+      '<a class="btn gold" href="' + appLink('r', code) + '">' + t('Ongeza kwenye Bongo Challenge', 'Add to Bongo Challenge') + '</a></div>';
+  }
+
+  async function start() {
+    var m = location.hash.match(/^#([qcr])=([A-Za-z0-9_\-]+)/);
+    if (!m) {
+      app.innerHTML = '<div class="card center"><h2>' + t('Karibu! 👋', 'Welcome! 👋') + '</h2><p class="muted">' +
+        t('Neno la Siku, Bongo Pop, Ukweli au Changamoto, Kitendawili na michezo mingine mingi.', 'Word of the Day, Bongo Pop, Truth or Dare, riddles and many more games.') + '</p>' + installCard() + '</div>';
+      return;
+    }
+    try {
+      var data = await decode(m[2]);
+      if (m[1] === 'q') quiz(data, m[2]); else if (m[1] === 'c') compare(data); else result(data, m[2]);
+    } catch (e) {
+      app.innerHTML = '<div class="card center"><h2>😕</h2><p class="muted">' + t('Kiungo hiki hakifanyi kazi. Mwombe rafiki akutumie tena.', 'This link doesn\'t work. Ask your friend to send it again.') + '</p>' + installCard() + '</div>';
+    }
+  }
+  start();
+})();
+</script>
+</body>
+</html>
